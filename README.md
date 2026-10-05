@@ -215,6 +215,80 @@ Route definition:
 $router->get('/api/users', 'Api::users');
 ```
 
+## Laboratory Exercise 6: Authenticated Product CRUD
+
+This repository now includes a React inventory frontend in `frontend/` and a
+LavaLust JSON API. The API stores data in the Aiven MySQL database selected by
+`DB_NAME` and never exposes a database connection to the frontend.
+
+### Local setup
+
+1. Copy `.env.example` to `.env`, then set the Aiven host, port, user, password,
+   and database. Keep `.env` private; it is ignored by Git and excluded from the
+   Docker image.
+2. Set separate random values of at least 32 characters for `JWT_SECRET` and
+   `REFRESH_TOKEN_KEY`. Generate each with `php -r "echo bin2hex(random_bytes(32));"`.
+3. Keep `DB_SSL_REQUIRED=1` for Aiven. Set `DB_SSL_CA` to a CA bundle file if
+   your local MySQL driver requires one. Set `CORS_ALLOWED_ORIGIN` to
+   `http://localhost:5173` for local frontend development.
+4. Apply the schema to the configured database:
+
+   ```sh
+   php lava migration run
+   ```
+
+5. Start the API and frontend in separate terminals:
+
+   ```sh
+   php lava serve --port=3000
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+6. Open the Vite URL (normally `http://localhost:5173`) and create an account
+   from the sign-in screen.
+
+### API routes
+
+| Method | Route | Authentication |
+| --- | --- | --- |
+| POST | `/api/auth/register` | Public |
+| POST | `/api/auth/login` | Public |
+| POST | `/api/auth/refresh` | Refresh token |
+| POST | `/api/auth/logout` | Bearer access token |
+| GET | `/api/auth/me` | Bearer access token |
+| GET | `/api/products` | Bearer access token |
+| GET | `/api/products/{id}` | Bearer access token |
+| POST | `/api/products` | Bearer access token |
+| PUT/PATCH | `/api/products/{id}` | Bearer access token |
+| DELETE | `/api/products/{id}` | Bearer access token |
+
+Register and login return short-lived JWT access tokens and refresh tokens.
+Product endpoints reject requests without a valid bearer access token. Product
+fields are validated server-side. The frontend refreshes expired access tokens
+and sends all product requests to the API.
+
+### Render deployment
+
+The root `render.yaml` defines a Docker-based LavaLust API and a static React
+site. Push the repository to GitHub, create a Render Blueprint from it, then
+provide the requested environment values in Render:
+
+- API `DB_HOST`, `DB_PORT`, `DB_USER`, and `DB_PASSWORD` from Aiven.
+- API `CORS_ALLOWED_ORIGIN` set to the deployed frontend's HTTPS origin.
+- Frontend `VITE_API_URL` set to the API URL followed by `/api`.
+
+Render generates separate JWT and refresh-token secrets. Keep the Aiven
+database password and all production secrets in Render's environment settings,
+not in the repository. Apply migrations to the target Aiven database with
+`php lava migration run` before deploying the API. The production database
+must be the `lavalust6` database (or update `DB_NAME` in Render accordingly).
+
+The previous development-only migration web routes are intentionally not
+registered: schema rollback actions must not be exposed as unauthenticated
+production endpoints.
+
 ---
 
 ## Philosophy

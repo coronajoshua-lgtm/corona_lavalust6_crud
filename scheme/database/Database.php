@@ -242,6 +242,12 @@ class Database {
             ? $database_config['path']
             : null;
 
+        $ssl_required = !empty($database_config['ssl_required']);
+        $ssl_ca = isset($database_config['ssl_ca']) && !empty($database_config['ssl_ca'])
+            ? $database_config['ssl_ca']
+            : null;
+        $ssl_verify = !empty($database_config['ssl_verify']);
+
         switch ($driver) {
             case 'mysql':
                 $dsn = "mysql:host=$host;dbname=$dbname_value;charset=$charset;port=$port";
@@ -268,9 +274,28 @@ class Database {
             PDO::ATTR_EMULATE_PREPARES   => false,
         );
 
+        if ($driver === 'mysql' && $ssl_required) {
+            if ($ssl_ca !== null && !is_file($ssl_ca)) {
+                throw new PDOException('The configured MySQL SSL CA file does not exist.');
+            }
+
+            $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = $ssl_verify;
+            if ($ssl_ca !== null) {
+                $options[PDO::MYSQL_ATTR_SSL_CA] = $ssl_ca;
+            }
+        }
+
         try {
             $this->db = new PDO($dsn, $username, $password, $options);
             $this->driver = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+            if ($driver === 'mysql' && $ssl_required) {
+                $ssl_status = $this->db->query("SHOW SESSION STATUS LIKE 'Ssl_cipher'")
+                    ->fetch(PDO::FETCH_NUM);
+                if (empty($ssl_status[1])) {
+                    throw new PDOException('The MySQL connection did not negotiate TLS.');
+                }
+            }
         } catch (Exception $e) {
             $error = load_class('Errors', 'kernel');
             $error->show_database_error(

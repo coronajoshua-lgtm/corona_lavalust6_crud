@@ -45,3 +45,24 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 /** @var object $router **/
 
 $router->get('/', 'Welcome::index');
+
+// Migration operations are callable from the CLI only.
+$router->get('create-migration/{migration_class}', 'MigrationController::create_migration');
+$router->get('migrate', 'MigrationController::migrate');
+$router->get('rollback', 'MigrationController::rollback');
+$router->get('rollback-all', 'MigrationController::rollback_all');
+$router->get('refresh', 'MigrationController::refresh');
+$router->get('status', 'MigrationController::status');
+
+$router->post('api/auth/register', 'Auth::register');
+$router->post('api/auth/login', 'Auth::login');
+$router->post('api/auth/refresh', 'Auth::refresh');
+$router->post('api/auth/logout', 'Auth::logout');
+$router->get('api/auth/me', 'Auth::me');
+
+$router->get('api/products', 'Products::index');
+$router->post('api/products', 'Products::create');
+$router->get('api/products/{id}', 'Products::show')->where_number('id');
+$router->put('api/products/{id}', 'Products::update')->where_number('id');
+$router->patch('api/products/{id}', 'Products::update')->where_number('id');
+$router->delete('api/products/{id}', 'Products::delete')->where_number('id');
